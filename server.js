@@ -1,0 +1,513 @@
+const http = require('http');
+const https = require('https');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const PORT = process.env.PORT || 3090;
+const PUBLIC_DIR = __dirname;
+const DATA_DIR = path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const SERVICES_FILE = path.join(DATA_DIR, 'services.json');
+const RESERVATIONS_FILE = path.join(DATA_DIR, 'reservations.json');
+const activeAdminTokens = new Set();
+
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+function getAdminCredentials() {
+  const data = readJson(SERVICES_FILE, {});
+  const auth = data.adminAuth || {};
+  return {
+    username: auth.username || process.env.ADMIN_USERNAME || 'gereklielektrik',
+    password: auth.password || process.env.ADMIN_PASSWORD || 'Ge2026!Elektrik'
+  };
+}
+
+function verifyAdmin(req) {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  return Boolean(token && activeAdminTokens.has(token));
+}
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp'
+};
+
+function readJson(filePath, fallback) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-publishable-api-key'
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk;
+      if (raw.length > 10 * 1024 * 1024) req.destroy();
+    });
+    req.on('end', () => {
+      if (!raw) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function buildCorporateSvgLogo(companyName) {
+  const clean = String(companyName || 'KURUMSAL').replace(/[<>&"']/g, '').toUpperCase();
+  const initial = clean.charAt(0) || 'G';
+  const colors = ['#d97706', '#0284c7', '#1d4ed8', '#059669', '#0f172a', '#4f46e5'];
+  const color = colors[clean.length % colors.length];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 64'><rect x='8' y='14' width='36' height='36' rx='9' fill='${color}'/><text x='26' y='39' text-anchor='middle' font-family='Space Grotesk, Arial, sans-serif' font-size='18' font-weight='900' fill='#ffffff'>${initial}</text><text x='54' y='39' font-family='Space Grotesk, Arial, sans-serif' font-size='17' font-weight='800' fill='#0f172a'>${clean.substring(0, 18)}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function saveBase64Logo(base64Str, prefix = 'ref') {
+  if (!base64Str || typeof base64Str !== 'string') return '';
+  const match = base64Str.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return base64Str;
+  const mime = match[1];
+  const b64 = match[2];
+  let ext = 'png';
+  if (mime.includes('svg')) ext = 'svg';
+  else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+  else if (mime.includes('webp')) ext = 'webp';
+
+  const filename = `${prefix}-${Date.now()}-${Math.floor(100 + Math.random() * 900)}.${ext}`;
+  fs.writeFileSync(path.join(UPLOADS_DIR, filename), Buffer.from(b64, 'base64'));
+  return `/api/media/${filename}`;
+}
+
+function sha256Hash(val) {
+  if (!val) return undefined;
+  const normalized = String(val).trim().toLowerCase();
+  if (!normalized) return undefined;
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+
+function dispatchMetaCapiEvent({ tracking, eventName, eventSourceUrl, clientIp, userAgent, customData, userData }) {
+  return new Promise((resolve) => {
+    const pixelId = String((tracking && tracking.metaPixelId) || '').trim();
+    const accessToken = String((tracking && tracking.metaAccessToken) || '').trim();
+    if (!pixelId || !accessToken) {
+      return resolve({ skipped: true, reason: 'Meta Pixel ID veya CAPI Access Token tanımlı değil' });
+    }
+
+    const cleanPhone = String((userData && userData.phone) || '').replace(/\D/g, '');
+    const normalizedPhone = cleanPhone.startsWith('0') ? '9' + cleanPhone : (cleanPhone && !cleanPhone.startsWith('90') ? '90' + cleanPhone : cleanPhone);
+
+    const userPayload = {
+      client_ip_address: clientIp || undefined,
+      client_user_agent: userAgent || undefined
+    };
+    if (normalizedPhone) userPayload.ph = [sha256Hash(normalizedPhone)];
+    if (userData && userData.company) userPayload.fn = [sha256Hash(userData.company)];
+
+    const eventPayload = {
+      data: [
+        {
+          event_name: eventName || 'Lead',
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: 'website',
+          event_source_url: eventSourceUrl || 'https://gereklielektrik.com',
+          user_data: userPayload,
+          custom_data: customData || { currency: 'TRY', value: 0 }
+        }
+      ]
+    };
+
+    if (tracking.metaTestEventCode && String(tracking.metaTestEventCode).trim()) {
+      eventPayload.test_event_code = String(tracking.metaTestEventCode).trim();
+    }
+
+    const postBody = JSON.stringify(eventPayload);
+    const reqOpts = {
+      hostname: 'graph.facebook.com',
+      path: `/v19.0/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postBody)
+      }
+    };
+
+    const fbReq = https.request(reqOpts, (fbRes) => {
+      let raw = '';
+      fbRes.on('data', d => { raw += d; });
+      fbRes.on('end', () => {
+        try {
+          resolve({ status: fbRes.statusCode, response: JSON.parse(raw) });
+        } catch {
+          resolve({ status: fbRes.statusCode, raw });
+        }
+      });
+    });
+    fbReq.on('error', (err) => resolve({ error: err.message }));
+    fbReq.write(postBody);
+    fbReq.end();
+  });
+}
+
+const server = http.createServer(async (req, res) => {
+  if (req.method === 'OPTIONS') {
+    return sendJson(res, 200, { ok: true });
+  }
+
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const pathname = parsedUrl.pathname;
+
+  // 1. Healthcheck
+  if (pathname === '/api/health') {
+    return sendJson(res, 200, { status: 'ok', platform: 'gereklielektrik.com', engine: 'Gerekli Elektrik Taahhut & Ariza Engine' });
+  }
+
+  // 1b. Admin Authentication Endpoints (/api/admin/login, /api/admin/logout, /api/admin/credentials)
+  if (pathname === '/api/admin/login' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const inputUser = String(body.username || '').trim().toLowerCase();
+      const inputPass = String(body.password || '').trim();
+      const creds = getAdminCredentials();
+      const validUser = inputUser === creds.username.toLowerCase() || inputUser === 'admin';
+
+      if (validUser && inputPass === creds.password) {
+        const token = crypto.randomBytes(24).toString('hex');
+        activeAdminTokens.add(token);
+        return sendJson(res, 200, { success: true, token, username: creds.username });
+      }
+      return sendJson(res, 401, { success: false, error: 'Kullanıcı adı veya şifre hatalı!' });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: 'Geçersiz istek.' });
+    }
+  }
+
+  if (pathname === '/api/admin/logout' && req.method === 'POST') {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (token) activeAdminTokens.delete(token);
+    return sendJson(res, 200, { success: true });
+  }
+
+  if (pathname === '/api/admin/credentials' && req.method === 'POST') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim.' });
+    }
+    try {
+      const body = await parseBody(req);
+      const newUsername = String(body.username || '').trim();
+      const newPassword = String(body.password || '').trim();
+      if (!newUsername || newPassword.length < 6) {
+        return sendJson(res, 400, { success: false, error: 'Kullanıcı adı zorunludur ve şifre en az 6 karakter olmalıdır.' });
+      }
+      const current = readJson(SERVICES_FILE, {});
+      current.adminAuth = { username: newUsername, password: newPassword };
+      writeJson(SERVICES_FILE, current);
+      return sendJson(res, 200, { success: true, username: newUsername });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: e.message });
+    }
+  }
+
+  // 2. Serve Uploaded Media (/api/media/:filename)
+  const mediaMatch = pathname.match(/^\/api\/media\/([a-zA-Z0-9_.-]+)$/);
+  if (mediaMatch && req.method === 'GET') {
+    const file = path.basename(mediaMatch[1]);
+    const fullPath = path.join(UPLOADS_DIR, file);
+    if (!fs.existsSync(fullPath)) {
+      res.writeHead(404);
+      return res.end('Not found');
+    }
+    const ext = path.extname(file).toLowerCase();
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+    return fs.createReadStream(fullPath).pipe(res);
+  }
+
+  // 3. GET & POST /api/services
+  if (pathname === '/api/services' && req.method === 'GET') {
+    const data = readJson(SERVICES_FILE, {
+      settings: {},
+      tracking: {},
+      frequencies: [],
+      addons: [],
+      services: [],
+      referencesSettings: {},
+      references: []
+    });
+    const isAdmin = verifyAdmin(req);
+    const safeData = { ...data };
+    delete safeData.adminAuth;
+
+    if (!isAdmin && safeData.tracking) {
+      safeData.tracking = {
+        ...safeData.tracking,
+        metaAccessToken: undefined
+      };
+    } else if (isAdmin) {
+      safeData.adminUsername = getAdminCredentials().username;
+    }
+
+    return sendJson(res, 200, { success: true, ...safeData });
+  }
+
+  if (pathname === '/api/services' && req.method === 'POST') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim. Lütfen yönetici girişi yapın.' });
+    }
+    try {
+      const body = await parseBody(req);
+      const current = readJson(SERVICES_FILE, {});
+      const updated = {
+        ...current,
+        settings: body.settings ? { ...current.settings, ...body.settings } : current.settings,
+        tracking: body.tracking ? { ...(current.tracking || {}), ...body.tracking } : (current.tracking || {}),
+        frequencies: Array.isArray(body.frequencies) ? body.frequencies : current.frequencies,
+        addons: Array.isArray(body.addons) ? body.addons : current.addons,
+        services: Array.isArray(body.services) ? body.services : current.services,
+        referencesSettings: body.referencesSettings
+          ? { ...current.referencesSettings, ...body.referencesSettings }
+          : current.referencesSettings,
+        references: Array.isArray(body.references) ? body.references : current.references
+      };
+      writeJson(SERVICES_FILE, updated);
+      const safeUpdated = { ...updated };
+      delete safeUpdated.adminAuth;
+      return sendJson(res, 200, { success: true, ...safeUpdated });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: e.message });
+    }
+  }
+
+  // 4. GET /api/tracking/public
+  if (pathname === '/api/tracking/public' && req.method === 'GET') {
+    const current = readJson(SERVICES_FILE, {});
+    const tr = current.tracking || {};
+    return sendJson(res, 200, {
+      success: true,
+      tracking: {
+        ga4MeasurementId: tr.ga4MeasurementId || '',
+        gtmContainerId: tr.gtmContainerId || '',
+        googleAdsId: tr.googleAdsId || '',
+        googleAdsConversionLabel: tr.googleAdsConversionLabel || '',
+        googleAdsWhatsappLabel: tr.googleAdsWhatsappLabel || '',
+        metaPixelId: tr.metaPixelId || '',
+        capiEnabled: Boolean(tr.metaPixelId && tr.metaAccessToken),
+        customHeadHtml: tr.customHeadHtml || '',
+        customBodyHtml: tr.customBodyHtml || ''
+      }
+    });
+  }
+
+  // 4b. POST /api/tracking/capi
+  if (pathname === '/api/tracking/capi' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const current = readJson(SERVICES_FILE, {});
+      const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+      const userAgent = req.headers['user-agent'] || '';
+
+      const result = await dispatchMetaCapiEvent({
+        tracking: current.tracking || {},
+        eventName: body.eventName || 'Lead',
+        eventSourceUrl: body.eventSourceUrl || `https://${req.headers.host || 'gereklielektrik.com'}`,
+        clientIp,
+        userAgent,
+        customData: body.customData || { currency: 'TRY', value: 0 },
+        userData: body.userData || {}
+      });
+
+      return sendJson(res, 200, { success: true, capi: result });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: e.message });
+    }
+  }
+
+  // 5. POST /api/references
+  if (pathname === '/api/references' && req.method === 'POST') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim. Lütfen yönetici girişi yapın.' });
+    }
+    try {
+      const body = await parseBody(req);
+      const name = String(body.name || '').trim();
+      if (!name) return sendJson(res, 400, { success: false, error: 'Firma/Proje adı zorunludur.' });
+
+      const current = readJson(SERVICES_FILE, {});
+      const refs = Array.isArray(current.references) ? current.references : [];
+
+      let finalLogo = String(body.logoUrl || '').trim();
+      if (body.logoBase64 && String(body.logoBase64).startsWith('data:image/')) {
+        finalLogo = saveBase64Logo(body.logoBase64, 'ref');
+      } else if (!finalLogo) {
+        finalLogo = buildCorporateSvgLogo(name);
+      }
+
+      const newRef = {
+        id: 'ref-' + Date.now(),
+        name: name.toUpperCase(),
+        sector: String(body.sector || 'Tamamlanan Proje').trim(),
+        logoUrl: finalLogo,
+        active: true
+      };
+      refs.push(newRef);
+      current.references = refs;
+      writeJson(SERVICES_FILE, current);
+
+      return sendJson(res, 201, { success: true, reference: newRef, references: refs });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: e.message });
+    }
+  }
+
+  // 6. DELETE /api/references/:id
+  const refDelMatch = pathname.match(/^\/api\/references\/([a-zA-Z0-9_-]+)$/);
+  if (refDelMatch && req.method === 'DELETE') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim. Lütfen yönetici girişi yapın.' });
+    }
+    const id = refDelMatch[1];
+    const current = readJson(SERVICES_FILE, {});
+    current.references = (current.references || []).filter(r => r.id !== id);
+    writeJson(SERVICES_FILE, current);
+    return sendJson(res, 200, { success: true, references: current.references });
+  }
+
+  // 7. POST /api/reservation.json (Create Quote / Service Request)
+  if ((pathname === '/api/reservation.json' || pathname === '/store/carts') && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const meta = body.metadata || {};
+      const list = readJson(RESERVATIONS_FILE, []);
+      const newRes = {
+        id: 'GE-' + Math.floor(1000 + Math.random() * 9000),
+        createdAt: new Date().toISOString(),
+        status: 'Yeni Keşif / Servis Talebi',
+        customerCompany: meta.customer_company || 'Müşteri',
+        customerPhone: meta.customer_phone || '-',
+        serviceType: meta.service_type || 'Elektrik Tesisat & Servis',
+        medusaVariantId: body.variant_id || 'variant_elektrik',
+        squareMeters: Number(meta.square_meters || 100),
+        roomCount: Number(meta.room_count || 1),
+        restroomCount: Number(meta.restroom_count || 1),
+        frequency: meta.frequency || 'Standart Uygulama',
+        addons: meta.selected_addons || [],
+        recommendedStaff: Number(meta.recommended_staff || 2),
+        calculatedPriceTL: Number(meta.calculated_price_tl || 1500),
+        preferredDate: meta.preferred_date || ''
+      };
+      list.unshift(newRes);
+      writeJson(RESERVATIONS_FILE, list);
+
+      const storeConfig = readJson(SERVICES_FILE, {});
+      const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+      const userAgent = req.headers['user-agent'] || '';
+      dispatchMetaCapiEvent({
+        tracking: storeConfig.tracking || {},
+        eventName: 'Lead',
+        eventSourceUrl: `https://${req.headers.host || 'gereklielektrik.com'}/#fiyat-hesapla`,
+        clientIp,
+        userAgent,
+        customData: {
+          currency: 'TRY',
+          value: newRes.calculatedPriceTL,
+          content_name: newRes.serviceType,
+          content_category: `${newRes.squareMeters} m2 - ${newRes.frequency}`
+        },
+        userData: {
+          phone: newRes.customerPhone,
+          company: newRes.customerCompany
+        }
+      }).catch(() => {});
+
+      return sendJson(res, 201, {
+        success: true,
+        reservationId: newRes.id,
+        cart: { id: 'cart_' + newRes.id, item: newRes }
+      });
+    } catch (e) {
+      return sendJson(res, 400, { success: false, error: e.message });
+    }
+  }
+
+  // 8. GET & DELETE /api/reservations (Protected Admin Endpoints)
+  if (pathname === '/api/reservations' && req.method === 'GET') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim. Lütfen yönetici girişi yapın.' });
+    }
+    const reservations = readJson(RESERVATIONS_FILE, []);
+    return sendJson(res, 200, { success: true, reservations });
+  }
+
+  const resDelMatch = pathname.match(/^\/api\/reservations\/([a-zA-Z0-9_-]+)$/);
+  if (resDelMatch && req.method === 'DELETE') {
+    if (!verifyAdmin(req)) {
+      return sendJson(res, 401, { success: false, error: 'Yetkisiz erişim.' });
+    }
+    const id = resDelMatch[1];
+    const reservations = readJson(RESERVATIONS_FILE, []).filter(r => r.id !== id);
+    writeJson(RESERVATIONS_FILE, reservations);
+    return sendJson(res, 200, { success: true, reservations });
+  }
+
+  // 9. Static & Page Routing
+  let filePath = path.join(PUBLIC_DIR, 'index.html');
+  if (pathname === '/admin' || pathname === '/admin.html') {
+    filePath = path.join(PUBLIC_DIR, 'admin.html');
+  } else if (pathname !== '/' && pathname !== '/index.html') {
+    const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+    const candidate = path.join(PUBLIC_DIR, safePath);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      filePath = candidate;
+    }
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'text/html; charset=utf-8';
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('404 Not Found');
+    }
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content);
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`===================================================`);
+  console.log(`⚡ GEREKLİ ELEKTRİK Platformu Yayında!`);
+  console.log(`📡 Vitrin      : http://localhost:${PORT}`);
+  console.log(`⚙️  Admin Panel : http://localhost:${PORT}/admin`);
+  console.log(`===================================================`);
+});
+

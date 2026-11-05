@@ -1,0 +1,13 @@
+{
+  "name": "gerekli-elektrik-platform",
+  "version": "1.0.0",
+  "description": "GerekliElektrik.com - Kentsel Dönüşüm Yeni Bina Tesisatı, Mağaza & İş Yeri Elektrik Taahhüt, Malzeme Tedariği ve 7/24 Elektrik Arıza Servisi Platformu",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+

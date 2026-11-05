@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerekli Elektrik | Yönetim, Fiyatlandırma, Dönüşüm & Keşif Paneli</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <style>[x-cloak]{display:none !important;}</style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans" x-data="adminController()" x-init="loadAdmin()">
+
+  <!-- ADMİN GİRİŞ EKRANI (YETKİSİZ ERİŞİM ENGELLEYİCİ) -->
+  <div x-show="!isAuthenticated" x-cloak class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div class="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 p-8 shadow-2xl space-y-6">
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20 text-slate-950 font-black text-2xl">
+          ⚡
+        </div>
+        <h1 class="text-xl font-extrabold text-white">Gerekli Elektrik Yönetim Paneli</h1>
+        <p class="text-xs text-slate-400">Bu alana yalnızca yetkili yönetici kullanıcı adı ve şifresi ile giriş yapılabilir.</p>
+      </div>
+
+      <form @submit.prevent="login()" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Kullanıcı Adı</label>
+          <input type="text" x-model="loginForm.username" required autocomplete="username" placeholder="gereklielektrik"
+                 class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Yönetici Şifresi</label>
+          <input type="password" x-model="loginForm.password" required autocomplete="current-password" placeholder="••••••••••••"
+                 class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-amber-500" />
+        </div>
+
+        <div x-show="loginError" x-cloak class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 font-semibold text-center" x-text="loginError"></div>
+
+        <button type="submit" :disabled="loggingIn"
+                class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/25 transition-all">
+          <span x-show="!loggingIn">🔒 Yönetim Paneline Giriş Yap</span>
+          <span x-show="loggingIn" x-cloak>Doğrulanıyor...</span>
+        </button>
+      </form>
+
+      <div class="pt-4 border-t border-slate-800 text-center">
+        <a href="/" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">← Ana Sayfaya Dön</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- KORUMALI YÖNETİM PANELİ İÇERİĞİ -->
+  <div x-show="isAuthenticated" x-cloak>
+
+  <!-- ÜST BAR -->
+  <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm">⚡</div>
+          <span class="font-bold text-white">GEREKLİ ELEKTRİK Control Center</span>
+        </a>
+        <span class="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold">
+          Taahhüt • Tedarik • Arıza Motoru
+        </span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="/" target="_blank" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200">
+          🌐 Siteyi Gör ↗
+        </a>
+        <button @click="saveAllSettings()" :disabled="saving"
+                class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold shadow-lg shadow-amber-500/20">
+          <span x-show="!saving">💾 Tüm Ayarları Kaydet</span>
+          <span x-show="saving" x-cloak>Kaydediliyor...</span>
+        </button>
+        <button @click="logout()" class="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-bold">
+          🚪 Çıkış Yap
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- BİLDİRİM TOAST -->
+    <div x-show="toastMessage" x-cloak
+         class="fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-2xl">
+      <span x-text="toastMessage"></span>
+    </div>
+
+    <!-- KPI KARTLARI -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+        <div class="text-xs text-slate-400">Gelen Keşif &amp; Servis Talebi</div>
+        <div class="text-2xl font-extrabold text-white mt-1" x-text="reservations.length">0</div>
+      </div>
+      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+        <div class="text-xs text-slate-400">Toplam Hesaplanan Proje Alanı</div>
+        <div class="text-2xl font-extrabold text-amber-400 mt-1" x-text="totalSqm() + ' m²'">0 m²</div>
+      </div>
+      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+        <div class="text-xs text-slate-400">Toplam Teklif / İş Hacmi</div>
+        <div class="text-2xl font-extrabold text-emerald-400 mt-1" x-text="formatTL(totalRevenue())">0 ₺</div>
+      </div>
+      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+        <div class="text-xs text-slate-400">Aktif Referans &amp; Proje Sayısı</div>
+        <div class="text-2xl font-extrabold text-sky-400 mt-1" x-text="references.length + ' Proje'">0</div>
+      </div>
+    </div>
+
+    <!-- 1. GELEN KEŞİF, PROJE & ARIZA TALEPLERİ LİSTESİ -->
+    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">📋 Gelen Elektrik Keşif, Taahhüt &amp; Arıza Talepleri</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Müşterilerin sitedeki hesaplama motorundan gönderdiği gerçek zamanlı talepler</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400">
+              <th class="py-3 px-3">Kod / Tarih</th>
+              <th class="py-3 px-3">Müşteri / Telefon</th>
+              <th class="py-3 px-3">Hizmet Kategorisi</th>
+              <th class="py-3 px-3">Alan / Bölüm / Pano</th>
+              <th class="py-3 px-3">Kapsam</th>
+              <th class="py-3 px-3">Hesaplanan Tutar</th>
+              <th class="py-3 px-3 text-right">İşlem</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/70">
+            <template x-if="reservations.length === 0">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-500">Henüz gelen keşif veya arıza servis talebi bulunmuyor.</td>
+              </tr>
+            </template>
+            <template x-for="r in reservations" :key="r.id">
+              <tr class="hover:bg-slate-800/40">
+                <td class="py-3 px-3">
+                  <span class="font-bold text-amber-400" x-text="r.id"></span>
+                  <span class="block text-[11px] text-slate-500" x-text="r.preferredDate || (r.createdAt || '').slice(0,10)"></span>
+                </td>
+                <td class="py-3 px-3">
+                  <div class="font-bold text-white" x-text="r.customerCompany"></div>
+                  <div class="text-slate-400" x-text="r.customerPhone"></div>
+                </td>
+                <td class="py-3 px-3 font-medium text-slate-200" x-text="r.serviceType"></td>
+                <td class="py-3 px-3">
+                  <span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold" x-text="r.squareMeters + ' m²'"></span>
+                  <span class="text-slate-400 ml-1" x-text="r.roomCount + ' Bölüm / ' + (r.restroomCount || 1) + ' Pano'"></span>
+                </td>
+                <td class="py-3 px-3 text-slate-300" x-text="r.frequency"></td>
+                <td class="py-3 px-3 font-extrabold text-emerald-400" x-text="formatTL(r.calculatedPriceTL)"></td>
+                <td class="py-3 px-3 text-right">
+                  <div class="inline-flex items-center gap-2">
+                    <a :href="buildCustomerWa(r)" target="_blank"
+                       class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold">
+                      💬 WhatsApp'tan Yaz
+                    </a>
+                    <button @click="deleteReservation(r.id)"
+                            class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/20 font-bold"
+                            title="Talebi Sil">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2. İLETİŞİM, WHATSAPP & HESAPLAMA ÇARPANLARI -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-white">📞 İletişim, WhatsApp &amp; Genel Hesaplama Çarpanları</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Burada yaptığınız değişiklikler anında gereklielektrik.com vitrinine yansır.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">WhatsApp Numarası (Ülke Koduyla: 905XXXXXXXXX)</label>
+            <input type="text" x-model="settings.whatsapp" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Gösterilen Acil &amp; Keşif Telefonu</label>
+            <input type="text" x-model="settings.phone" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Kurumsal E-Posta</label>
+            <input type="text" x-model="settings.email" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Bölge / Adres Metni</label>
+            <input type="text" x-model="settings.address" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Daire / Bölüm Başı İlave Ücret (₺)</label>
+            <input type="number" x-model.number="settings.roomFee" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-amber-400 font-bold" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Sigorta Panosu / Kolon Başı Ücret (₺)</label>
+            <input type="number" x-model.number="settings.panelFee" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-amber-400 font-bold" />
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800">
+          <label class="block text-xs font-bold text-amber-400 mb-2">Kapsam / Proje İndirim Oranları (%)</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <template x-for="f in frequencies" :key="f.id">
+              <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-[11px] text-slate-400 truncate" x-text="f.label"></div>
+                <div class="flex items-center gap-1 mt-1">
+                  <span class="text-xs text-slate-500">%</span>
+                  <input type="number" x-model.number="f.discountPercent" class="w-full bg-transparent text-sm font-bold text-amber-400 focus:outline-none" />
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- EK ELEKTRİK HİZMET SEÇENEKLERİ -->
+      <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+        <div>
+          <h2 class="text-base font-bold text-white">➕ Ek Elektrik &amp; Altyapı Seçenekleri</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Hesaplama formundaki opsiyonel teknik kalemleri ve fiyatlarını yönetin.</p>
+        </div>
+
+        <div class="space-y-2.5">
+          <template x-for="(ad, index) in addons" :key="ad.id">
+            <div class="flex items-center gap-2">
+              <input type="text" x-model="ad.name" class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white" />
+              <input type="number" x-model.number="ad.priceTL" class="w-28 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-emerald-400" />
+              <button @click="addons.splice(index, 1)" class="px-2.5 py-2 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs">✕</button>
+            </div>
+          </template>
+        </div>
+
+        <div class="pt-2 flex items-center gap-2">
+          <input type="text" x-model="newAddonName" placeholder="Yeni Ek Hizmet (Örn: Elektrikli Araç Wallbox Hattı)" class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white" />
+          <input type="number" x-model.number="newAddonPrice" placeholder="Fiyat (₺)" class="w-28 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white" />
+          <button @click="addAddon()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold">+ Ekle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. HİZMET KATEGORİLERİ & m² BİRİM FİYATLARI -->
+    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">⚡ Elektrik Hizmet Kategorileri &amp; Birim Fiyatları</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Kentsel dönüşüm, mağaza elektrik, malzeme tedariği ve arıza servisi birim fiyatlarını düzenleyin.</p>
+        </div>
+        <button @click="saveAllSettings()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold">
+          💾 Fiyatları Güncelle
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <template x-for="srv in services" :key="srv.id">
+          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <input type="text" x-model="srv.title" class="font-bold text-sm text-white bg-transparent border-b border-transparent focus:border-amber-500 focus:outline-none w-full" />
+              <span class="text-[11px] font-mono text-slate-500 ml-2" x-text="srv.code"></span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">m² Birim Fiyatı (₺)</label>
+                <input type="number" step="1" x-model.number="srv.ratePerSqm" class="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm font-bold text-amber-400" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Sabit Servis/Ekip Ücreti (₺)</label>
+                <input type="number" x-model.number="srv.baseFee" class="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm font-bold text-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Vitrin Başlangıç (₺)</label>
+                <input type="number" x-model.number="srv.basePriceTL" class="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-sm font-bold text-emerald-400" />
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 4. REFERANSLAR & TAMAMLANAN PROJELER BANDI -->
+    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-white">🏆 Tamamlanan Projeler &amp; Kurumsal Referanslar Bandı</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Ana sayfadaki kayan referans bandına yeni bina projesi, mağaza veya firma ekleyin.</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" x-model="referencesSettings.enabled" class="rounded text-amber-500" />
+            <span>Kayan Bant Aktif</span>
+          </label>
+          <div class="flex items-center gap-2 text-xs text-slate-300">
+            <span>Hız (sn):</span>
+            <input type="number" min="10" max="90" x-model.number="referencesSettings.speed" class="w-16 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-center" />
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Proje / Firma Adı *</label>
+          <input type="text" x-model="newRef.name" placeholder="Örn: Güngören 24 Daire Kentsel Dönüşüm" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Yapılan İş / Sektör</label>
+          <input type="text" x-model="newRef.sector" placeholder="Örn: Anahtar Teslim Bina Tesisatı" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Logo Görseli (Boşsa Otomatik Üretilir)</label>
+          <input type="file" accept="image/*" @change="handleLogoUpload($event)" class="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-800 file:text-slate-200" />
+        </div>
+        <button @click="addReference()" class="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs">
+          + Referans Bandına Ekle
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <template x-for="ref in references" :key="ref.id">
+          <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 overflow-hidden">
+              <img :src="ref.logoUrl" :alt="ref.name" class="h-9 w-auto rounded bg-white p-1 shrink-0" />
+              <div class="truncate">
+                <div class="text-xs font-bold text-white truncate" x-text="ref.name"></div>
+                <div class="text-[10px] text-slate-400 truncate" x-text="ref.sector"></div>
+              </div>
+            </div>
+            <button @click="deleteReference(ref.id)" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1">Sil</button>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- 5. GOOGLE ANALYTICS, GOOGLE ADS, META PIXEL & DÖNÜŞÜM API (CAPI) -->
+    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold mb-1">
+            <span>📊 DÖNÜŞÜM İZLEME &amp; REKLAM ENTEGRASYONU</span>
+          </div>
+          <h2 class="text-base font-bold text-white">Google Analytics 4, Google Ads, Meta Pixel &amp; Conversions API (CAPI)</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Reklam dönüşümlerini, WhatsApp tıklamalarını ve keşif formlarını takip edin.</p>
+        </div>
+        <button @click="saveAllSettings()" :disabled="saving"
+                class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold shadow-lg shadow-amber-500/20">
+          💾 Takip &amp; Dönüşüm Kodlarını Kaydet
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+          <div class="font-bold text-sm text-white">Google Analytics 4, GTM &amp; Google Ads</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">GA4 Ölçüm Kimliği</label>
+              <input type="text" x-model="tracking.ga4MeasurementId" placeholder="G-XXXXXXXXXX" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Google Tag Manager ID</label>
+              <input type="text" x-model="tracking.gtmContainerId" placeholder="GTM-XXXXXXX" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Google Ads Dönüşüm Kimliği</label>
+              <input type="text" x-model="tracking.googleAdsId" placeholder="AW-XXXXXXXXXX" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Form Dönüşüm Etiketi</label>
+              <input type="text" x-model="tracking.googleAdsConversionLabel" placeholder="AbCdEfGhIjKlMnOpQr" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+          <div class="font-bold text-sm text-white">Meta (Facebook &amp; Instagram) Pixel + CAPI</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Meta Pixel ID</label>
+              <input type="text" x-model="tracking.metaPixelId" placeholder="123456789012345" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">CAPI Test Event Code</label>
+              <input type="text" x-model="tracking.metaTestEventCode" placeholder="TEST12345" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs text-slate-400 mb-1">Meta Conversions API (CAPI) Access Token</label>
+              <input type="password" x-model="tracking.metaAccessToken" placeholder="EAA..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+          <label class="block text-xs font-bold text-slate-300">💻 Özel &lt;head&gt; Kod Alanı (Search Console, Clarity, Ek Script)</label>
+          <textarea rows="4" x-model="tracking.customHeadHtml" placeholder="<!-- Özel <script> veya <meta> kodlarınızı buraya yapıştırın -->"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-amber-300 font-mono"></textarea>
+        </div>
+        <div class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+          <label class="block text-xs font-bold text-slate-300">💬 Özel &lt;body&gt; Kod Alanı (Canlı Destek, Takip Kodu)</label>
+          <textarea rows="4" x-model="tracking.customBodyHtml" placeholder="<!-- Özel scriptlerinizi buraya yapıştırın -->"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-emerald-300 font-mono"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. YÖNETİCİ KULLANICI ADI & ŞİFRE DEĞİŞTİRME -->
+    <div class="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+      <div>
+        <h2 class="text-base font-bold text-white">🔒 Yönetici Giriş Bilgileri (Kullanıcı Adı &amp; Şifre Değiştir)</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Yönetim paneli kullanıcı adınızı ve şifrenizi dilediğiniz zaman buradan güncelleyebilirsiniz.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Yönetici Kullanıcı Adı</label>
+          <input type="text" x-model="credForm.username" placeholder="gereklielektrik" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Yeni Yönetici Şifresi (En az 6 karakter)</label>
+          <input type="password" x-model="credForm.password" placeholder="Yeni şifrenizi yazın" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white" />
+        </div>
+        <button @click="updateCredentials()" class="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs">
+          🔑 Giriş Bilgilerini Güncelle
+        </button>
+      </div>
+    </div>
+
+  </main>
+  </div>
+
+  <script>
+    function adminController() {
+      return {
+        isAuthenticated: false,
+        authToken: localStorage.getItem('ge_admin_token') || '',
+        loginForm: { username: '', password: '' },
+        loginError: '',
+        loggingIn: false,
+        credForm: { username: 'gereklielektrik', password: '' },
+
+        settings: {
+          companyName: 'GEREKLİ ELEKTRİK',
+          phone: '+90 532 337 00 81',
+          whatsapp: '905323370081',
+          email: 'info@gereklielektrik.com',
+          address: '',
+          roomFee: 450,
+          panelFee: 1850,
+          minOrderTL: 1500
+        },
+        tracking: {
+          ga4MeasurementId: '',
+          gtmContainerId: '',
+          googleAdsId: '',
+          googleAdsConversionLabel: '',
+          googleAdsWhatsappLabel: '',
+          metaPixelId: '',
+          metaAccessToken: '',
+          metaTestEventCode: '',
+          customHeadHtml: '',
+          customBodyHtml: ''
+        },
+        frequencies: [],
+        addons: [],
+        services: [],
+        referencesSettings: { enabled: true, title: '', speed: 30, pauseOnHover: true },
+        references: [],
+        reservations: [],
+
+        newAddonName: '',
+        newAddonPrice: 2500,
+        newRef: { name: '', sector: '', logoBase64: '' },
+        saving: false,
+        toastMessage: '',
+
+        authHeaders() {
+          return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.authToken}`
+          };
+        },
+
+        async loadAdmin() {
+          if (!this.authToken) {
+            this.isAuthenticated = false;
+            return;
+          }
+          try {
+            const [resSrv, resOrd] = await Promise.all([
+              fetch('/api/services', { headers: this.authHeaders() }),
+              fetch('/api/reservations', { headers: this.authHeaders() })
+            ]);
+            if (resOrd.status === 401) {
+              this.logout();
+              return;
+            }
+            const srvData = await resSrv.json();
+            const ordData = await resOrd.json();
+
+            this.isAuthenticated = true;
+            if (srvData.adminUsername) this.credForm.username = srvData.adminUsername;
+            if (srvData.settings) this.settings = { ...this.settings, ...srvData.settings };
+            if (srvData.tracking) this.tracking = { ...this.tracking, ...srvData.tracking };
+            this.frequencies = srvData.frequencies || [];
+            this.addons = srvData.addons || [];
+            this.services = srvData.services || [];
+            if (srvData.referencesSettings) this.referencesSettings = srvData.referencesSettings;
+            this.references = srvData.references || [];
+            this.reservations = ordData.reservations || [];
+          } catch (e) {
+            console.error('Admin yükleme hatası:', e);
+          }
+        },
+
+        async login() {
+          this.loggingIn = true;
+          this.loginError = '';
+          try {
+            const res = await fetch('/api/admin/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.loginForm)
+            });
+            const data = await res.json();
+            if (res.ok && data.success && data.token) {
+              this.authToken = data.token;
+              localStorage.setItem('ge_admin_token', data.token);
+              this.loginForm.password = '';
+              await this.loadAdmin();
+              this.showToast('Hoş geldiniz! Yönetim paneli açıldı.');
+            } else {
+              this.loginError = data.error || 'Kullanıcı adı veya şifre hatalı!';
+            }
+          } catch (e) {
+            this.loginError = 'Sunucu bağlantı hatası.';
+          } finally {
+            this.loggingIn = false;
+          }
+        },
+
+        async logout() {
+          try {
+            await fetch('/api/admin/logout', { method: 'POST', headers: this.authHeaders() });
+          } catch {}
+          this.authToken = '';
+          this.isAuthenticated = false;
+          localStorage.removeItem('ge_admin_token');
+        },
+
+        async updateCredentials() {
+          if (!this.credForm.username || !this.credForm.password || this.credForm.password.length < 6) {
+            alert('Lütfen geçerli bir kullanıcı adı ve en az 6 karakterli yeni şifre girin.');
+            return;
+          }
+          const res = await fetch('/api/admin/credentials', {
+            method: 'POST',
+            headers: this.authHeaders(),
+            body: JSON.stringify(this.credForm)
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            this.credForm.password = '';
+            this.showToast('Yönetici kullanıcı adı ve şifresi güncellendi!');
+          } else {
+            alert(data.error || 'Güncellenemedi.');
+          }
+        },
+
+        showToast(msg) {
+          this.toastMessage = msg;
+          setTimeout(() => { this.toastMessage = ''; }, 3200);
+        },
+
+        async saveAllSettings() {
+          this.saving = true;
+          try {
+            const res = await fetch('/api/services', {
+              method: 'POST',
+              headers: this.authHeaders(),
+              body: JSON.stringify({
+                settings: this.settings,
+                tracking: this.tracking,
+                frequencies: this.frequencies,
+                addons: this.addons,
+                services: this.services,
+                referencesSettings: this.referencesSettings,
+                references: this.references
+              })
+            });
+            if (res.status === 401) return this.logout();
+            const data = await res.json();
+            if (data.success) {
+              this.showToast('✅ Tüm fiyatlandırma, iletişim ve dönüşüm ayarları kaydedildi!');
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        addAddon() {
+          if (!this.newAddonName.trim()) return;
+          this.addons.push({
+            id: 'addon-' + Date.now(),
+            name: this.newAddonName.trim(),
+            priceTL: Number(this.newAddonPrice || 1500)
+          });
+          this.newAddonName = '';
+          this.saveAllSettings();
+        },
+
+        handleLogoUpload(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            this.newRef.logoBase64 = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        },
+
+        async addReference() {
+          if (!this.newRef.name.trim()) return;
+          const res = await fetch('/api/references', {
+            method: 'POST',
+            headers: this.authHeaders(),
+            body: JSON.stringify(this.newRef)
+          });
+          if (res.status === 401) return this.logout();
+          const data = await res.json();
+          if (data.success) {
+            this.references = data.references;
+            this.newRef = { name: '', sector: '', logoBase64: '' };
+            this.showToast('Yeni referans projesi banda eklendi!');
+          }
+        },
+
+        async deleteReference(id) {
+          const res = await fetch('/api/references/' + id, {
+            method: 'DELETE',
+            headers: this.authHeaders()
+          });
+          if (res.status === 401) return this.logout();
+          const data = await res.json();
+          if (data.success) {
+            this.references = data.references;
+            this.showToast('Referans silindi.');
+          }
+        },
+
+        async deleteReservation(id) {
+          if (!confirm('Bu keşif/servis talebini silmek istediğinize emin misiniz?')) return;
+          const res = await fetch('/api/reservations/' + id, {
+            method: 'DELETE',
+            headers: this.authHeaders()
+          });
+          if (res.status === 401) return this.logout();
+          const data = await res.json();
+          if (data.success) {
+            this.reservations = data.reservations;
+            this.showToast('Talep kaydı silindi.');
+          }
+        },
+
+        totalSqm() {
+          return this.reservations.reduce((s, r) => s + Number(r.squareMeters || 0), 0).toLocaleString('tr-TR');
+        },
+
+        totalRevenue() {
+          return this.reservations.reduce((s, r) => s + Number(r.calculatedPriceTL || 0), 0);
+        },
+
+        formatTL(val) {
+          return Number(val || 0).toLocaleString('tr-TR') + ' ₺';
+        },
+
+        buildCustomerWa(r) {
+          const clean = String(r.customerPhone || '').replace(/\D/g, '');
+          const phone = clean.startsWith('0') ? '9' + clean : (clean.startsWith('90') ? clean : '90' + clean);
+          const msg = `Merhaba ${r.customerCompany}, Gerekli Elektrik'ten ${r.id} kodlu (${r.serviceType} - ${r.squareMeters} m²) keşif/servis talebiniz için ulaşıyoruz.`;
+          return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
+

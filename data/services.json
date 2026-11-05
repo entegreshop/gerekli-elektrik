@@ -1,0 +1,206 @@
+{
+  "settings": {
+    "companyName": "GEREKLİ ELEKTRİK",
+    "phone": "+90 532 337 00 81",
+    "whatsapp": "905323370081",
+    "email": "info@gereklielektrik.com",
+    "address": "İstanbul Geneli Kentsel Dönüşüm, Mağaza Taahhüt & 7/24 Acil Elektrik Servisi",
+    "roomFee": 450,
+    "panelFee": 1850,
+    "minOrderTL": 1500
+  },
+  "tracking": {
+    "ga4MeasurementId": "",
+    "gtmContainerId": "",
+    "googleAdsId": "",
+    "googleAdsConversionLabel": "",
+    "googleAdsWhatsappLabel": "",
+    "metaPixelId": "",
+    "metaAccessToken": "",
+    "metaTestEventCode": "",
+    "customHeadHtml": "",
+    "customBodyHtml": ""
+  },
+  "frequencies": [
+    {
+      "id": "iscilik-montaj",
+      "label": "Sadece İşçilik & Teknik Uygulama",
+      "discountPercent": 0
+    },
+    {
+      "id": "anahtar-teslim",
+      "label": "Malzeme Dahil Anahtar Teslim (TSE Garantili)",
+      "discountPercent": 10
+    },
+    {
+      "id": "toplu-proje",
+      "label": "Kentsel Dönüşüm / Çoklu Daire & Mağaza İndirimi",
+      "discountPercent": 18
+    },
+    {
+      "id": "kurumsal-bakim",
+      "label": "Yıllık Kurumsal Bakım & Tedarik Anlaşması",
+      "discountPercent": 25
+    }
+  ],
+  "addons": [
+    {
+      "id": "addon-pano-sigorta",
+      "name": "Sigorta Panosu & Kaçak Akım Rölesi Yenileme (Siemens/Schneider)",
+      "priceTL": 3500
+    },
+    {
+      "id": "addon-led-spot",
+      "name": "Mimari LED, Gizli Işık & Mağaza Ray Spot Uygulaması",
+      "priceTL": 4200
+    },
+    {
+      "id": "addon-data-kamera",
+      "name": "CAT6 Network, Kamera & Diafon Zayıf Akım Kablolama",
+      "priceTL": 3800
+    },
+    {
+      "id": "addon-topraklama",
+      "name": "Topraklama, Paratoner & Kompanzasyon Ölçüm / Kurulum",
+      "priceTL": 4500
+    }
+  ],
+  "services": [
+    {
+      "id": "srv-kentsel-bina",
+      "code": "kentsel_bina",
+      "medusaVariantId": "variant_kentsel_donusum",
+      "title": "Kentsel Dönüşüm & Yeni Bina Elektrik Tesisatı",
+      "handle": "kentsel-donusum-yeni-bina-elektrik-tesisati",
+      "subtitle": "Anahtar Teslim Bina, Şantiye & Daire Elektrik Taahhüt",
+      "shortDesc": "Yeni binalar ve kentsel dönüşüm projeleri için projelendirmeden iskan onayına komple elektrik altyapısı",
+      "description": "Kentsel dönüşüm projeleri, apartmanlar ve yeni inşaatlar için temel topraklama, ana kolon hatları, sayaç panoları, daire içi yanmaz (Halogen-Free) kablolama, yangın algılama, görüntülü diafon ve BEDAŞ/AYEDAŞ resmi abonelik süreçleri.",
+      "basePriceTL": 18500,
+      "baseFee": 6500,
+      "ratePerSqm": 120,
+      "unitLabel": "Daire / Bina Komple Taahhüt",
+      "badge": "Kentsel Dönüşüm Uzmanı",
+      "features": [
+        "Temel Topraklama, Ana Kolon & Merkezi Sayaç Panoları",
+        "Halogen-Free Yanmaz Boru & TSE Belgeli Kablo Tesisatı",
+        "Yangın İhbar, Acil Yönlendirme & Görüntülü Diafon Altyapısı",
+        "BEDAŞ / AYEDAŞ Proje Onayı, Talimat & İskan Teslimi"
+      ]
+    },
+    {
+      "id": "srv-magaza-isyeri",
+      "code": "magaza_isyeri",
+      "medusaVariantId": "variant_magaza_isyeri",
+      "title": "Mağaza, Ofis & İş Yeri Komple Elektrik İşleri",
+      "handle": "magaza-isyeri-komple-elektrik-isleri",
+      "subtitle": "Ticari Aydınlatma, Güç Panosu & Data Altyapısı",
+      "shortDesc": "Mağaza, showroom, restoran ve ofisler için anahtar teslim elektrik & aydınlatma",
+      "description": "Kurumsal mağazalar, zincir şubeler, ofisler, kafe/restoranlar ve atölyeler için yüksek renksel geriverimli vitrin & ray spot aydınlatma, UPS/Jeneratör hattı, kablo tavası, makine enerji hatları ve network/kamera sistemleri.",
+      "basePriceTL": 12500,
+      "baseFee": 4500,
+      "ratePerSqm": 95,
+      "unitLabel": "Mağaza, Ofis & Ticari Alanlar",
+      "badge": "Kurumsal Mağaza Çözümü",
+      "features": [
+        "Mağaza Vitrin, Ray Spot & Dekoratif Mimari LED Aydınlatma",
+        "Kablo Tavası, Güç Panosu, UPS ve Jeneratör Transfer Hatları",
+        "CAT6 Sistem Odası (Rack Kabin), Wi-Fi & IP Kamera Altyapısı",
+        "İklimlendirme (VRF/Klima) ve Endüstriyel Cihaz Enerji Beslemesi"
+      ]
+    },
+    {
+      "id": "srv-malzeme-tedarik",
+      "code": "malzeme_tedarik",
+      "medusaVariantId": "variant_malzeme_tedarik",
+      "title": "Toptan & Perakende Elektrik Malzeme Tedariği",
+      "handle": "elektrik-malzeme-tedarigi",
+      "subtitle": "Şantiye, Mağaza & Kurumlara Hızlı Malzeme Sevkiyatı",
+      "shortDesc": "Kablo, şalt grubu, anahtar-priz ve LED aydınlatma ürünlerinde proje bazlı tedarik",
+      "description": "İnşaat şantiyeleri, müteahhitler, işletmeler ve bireysel projeler için Öznur/Hes/Prysmian kablo, Siemens/Schneider/Legrand şalt malzemeleri, Viko/Panasonic anahtar-priz serileri ve yüksek lümenli LED armatür tedariği.",
+      "basePriceTL": 4500,
+      "baseFee": 1500,
+      "ratePerSqm": 45,
+      "unitLabel": "Proje & Liste Bazlı Toptan Fiyat",
+      "badge": "Fabrika & Bayi Fiyat avantajı",
+      "features": [
+        "TSE & CE Belgeli NYA, NYM, TTR ve NHXMH Yanmaz Kablo Grupları",
+        "Otomatik Sigorta, Kaçak Akım Rölesi, Kontaktör & Pano Ekipmanları",
+        "Dekoratif Anahtar-Priz Serileri, Ray Spot, Panel & Bant Armatürler",
+        "Şantiyeye ve İş Yerine Aynı Gün Araçla Teslimat Desteği"
+      ]
+    },
+    {
+      "id": "srv-ariza-servis",
+      "code": "ariza_servis",
+      "medusaVariantId": "variant_ariza_servis",
+      "title": "Genel Hane & Konut Elektrik Arıza Servisi",
+      "handle": "elektrik-ariza-servisi",
+      "subtitle": "7/24 Nöbetçi Uzman Elektrikçi & Bakım Onarım",
+      "shortDesc": "Ev ve dairelerdeki tüm elektrik arızalarına, montaj ve yenileme işlerine hızlı müdahale",
+      "description": "Konut ve dairelerde yaşanan sigorta atması, kaçak akım rölesi sorunu, kısa devre tespiti, eski daire komple tesisat yenileme, avize/aplik montajı, klima/kombi/ankastre fırın hattı ve elektrikli araç şarj (Wallbox) kurulumu.",
+      "basePriceTL": 1500,
+      "baseFee": 1200,
+      "ratePerSqm": 25,
+      "unitLabel": "Acil Müdahale & Daire Tesisatı",
+      "badge": "7/24 Hızlı Servis",
+      "features": [
+        "Sigorta Atması, Kaçak Akım Rölesi & Kısa Devre Tespiti / Onarımı",
+        "Avize, LED Spot, Priz, Anahtar & Akıllı Ev Ekipmanları Montajı",
+        "Klima, Kombi, Ankastre ve Elektrikli Araç (EV Şarj) Özel Hat Çekimi",
+        "Eski Dairelerde Kırmadan / Tadilatlı Komple Tesisat Yenileme"
+      ]
+    }
+  ],
+  "referencesSettings": {
+    "enabled": true,
+    "title": "Kentsel Dönüşüm Projeleri, Kurumsal Mağazalar ve Konutlarda Güvenilir Çözüm Ortağınız",
+    "speed": 30,
+    "pauseOnHover": true,
+    "grayscale": false
+  },
+  "references": [
+    {
+      "id": "ref-1",
+      "name": "KENTSEL DÖNÜŞÜM KONUTLARI",
+      "sector": "36 Daire Anahtar Teslim Bina Tesisatı",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%23d97706'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23fff'%3EK%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EKENTSEL%20YAPI%20A.%C5%9E.%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    },
+    {
+      "id": "ref-2",
+      "name": "AYAZ MÜHENDİSLİK",
+      "sector": "Endüstriyel Pano & Kuvvetli Akım Altyapısı",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%230284c7'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23fff'%3EA%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EAYAZ%20M%C3%9CHEND%C4%B0SL%C4%B0K%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    },
+    {
+      "id": "ref-3",
+      "name": "MODA & PERAKENDE MAĞAZALARI",
+      "sector": "Ray Spot LED & Mağaza Elektrik Taahhüt",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%234f46e5'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23fff'%3EM%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EMODA%20SHOWROOM%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    },
+    {
+      "id": "ref-4",
+      "name": "BODYKİT MERKEZİ",
+      "sector": "Showroom & Atölye Kuvvetli Akım",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%23e11d48'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23fff'%3EB%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EBODYK%C4%B0T%20MERKEZ%C4%B0%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    },
+    {
+      "id": "ref-5",
+      "name": "MARMARA İNŞAAT & TAAHHÜT",
+      "sector": "Şantiye Malzeme & Kablo Tedariği",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%23059669'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23fff'%3EM%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EMARMARA%20%C4%B0N%C5%9EAAT%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    },
+    {
+      "id": "ref-6",
+      "name": "KUZEY TEKNOLOJİ PLAZA",
+      "sector": "UPS, Kompanzasyon & Data Altyapısı",
+      "logoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20260%2064'%3E%3Crect%20x%3D'8'%20y%3D'14'%20width%3D'36'%20height%3D'36'%20rx%3D'9'%20fill%3D'%230f172a'/%3E%3Ctext%20x%3D'26'%20y%3D'39'%20text-anchor%3D'middle'%20font-family%3D'Arial'%20font-size%3D'18'%20font-weight%3D'900'%20fill%3D'%23f59e0b'%3EK%3C%2Ftext%3E%3Ctext%20x%3D'54'%20y%3D'39'%20font-family%3D'Space%20Grotesk%2C%20Arial%2C%20sans-serif'%20font-size%3D'17'%20font-weight%3D'800'%20fill%3D'%230f172a'%3EKUZEY%20PLAZA%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "active": true
+    }
+  ]
+}
+
